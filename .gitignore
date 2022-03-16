@@ -1,0 +1,16 @@
+node_modules
+build
+lib
+dist
+data
+.DS_Store
+.local
+
+yarn-debug.log*
+yarn-error.log*
+
+.vscode
+.env
+.env.prod
+
+*.log
