@@ -5,8 +5,7 @@ import { DB_URL, PORT, NODE_ENV } from "./config";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { setupRoutes } from "./controllers";
-import { syncSubgraph } from "./subgraph";
-import { sync } from "./sync";
+import { setupJobs } from "./jobs";
 
 (async () => {
   await mongoose.connect(DB_URL);
@@ -20,11 +19,10 @@ import { sync } from "./sync";
   app.use(cors());
   app.use(morgan("dev"));
 
-  syncSubgraph();
-  // sync();
+  await setupJobs();
 
   app.get("/", (req, res) => {
-    res.json("You got me");
+    res.json({ status: "healthy", message: "Pendle analytics service" });
   });
 
   setupRoutes(app);

@@ -1,15 +1,15 @@
 import { Router } from "express";
-import { PriceHistory } from "../models";
+import { Price } from "../services";
 
 const router = Router();
 
-router.get("/", async (req, res) => {
-  const found = await PriceHistory.findOne({
-    token: { $regex: new RegExp(req.query.token, "i") },
-    timestamp: { $lte: +req.query.timestamp },
-  }).select("-_id priceUSD token timestamp");
-
-  res.json({ result: found });
+router.get("/:address", async (req, res, next) => {
+  try {
+    const result = await Price.getTokenPrice(req.params.address, req.query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

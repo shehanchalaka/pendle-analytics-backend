@@ -17,7 +17,13 @@ export async function syncTokens(network, syncFromBeginning = false) {
   const bwQuery = result.documents.map((doc) => ({
     updateOne: {
       filter: { address: doc.id },
-      update: { ...doc, network, address: doc.id },
+      update: {
+        ...doc,
+        network,
+        address: doc.id,
+        expiry: 1000 * parseInt(doc.expiry),
+        underlyingToken: doc.underlyingToken?.id,
+      },
       upsert: true,
     },
   }));

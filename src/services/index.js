@@ -9,3 +9,9 @@ export { default as Transaction } from "./transaction.service";
 export { default as User } from "./user.service";
 
 export { default as Data } from "./data.service";
+
+export { default as Price } from "./price.service";
+
+export { default as Stat } from "./stat.service";
+
+export { default as YieldContract } from "./yieldContract.service";

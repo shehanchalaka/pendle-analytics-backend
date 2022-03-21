@@ -1,28 +1,33 @@
 import { Transaction } from "../models";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-dayjs.extend(customParseFormat);
+import { Price, YieldContract } from "../services";
 
 export default {
   async getTransactions(query) {
-    console.log(query);
+    const forgeId = query?.forgeId?.toLowerCase();
+    const expiry = query?.expiry;
+    const underlyingToken = query?.underlyingToken?.toLowerCase();
+    const market = query?.market?.toLowerCase();
+    const filter = query?.filter?.toLowerCase() ?? "all";
+    const id = `${forgeId}-${expiry}-${underlyingToken}`;
+
+    const filterStage = [];
+    if (filter === "mints") {
+      filterStage.push({
+        $match: { $or: [{ action: "mint" }, { action: "redeem" }] },
+      });
+    } else if (filter === "swaps") {
+      filterStage.push({ $match: { $or: [{ action: "swap" }] } });
+    } else if (filter === "liquidity") {
+      filterStage.push({
+        $match: { $or: [{ action: "join" }, { action: "exit" }] },
+      });
+    }
 
     const result = await Transaction.aggregate([
-      { $match: { market: query.market } },
-      { $match: { action: "join" } },
-      {
-        $lookup: {
-          from: "markets",
-          let: { market: "$market" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$address", "$$market"] } } },
-            { $project: { _id: 0, address: 1, name: 1 } },
-          ],
-          as: "market",
-        },
-      },
-      { $set: { market: { $first: "$market" } } },
-      { $limit: 10 },
+      { $match: { $or: [{ yieldContract: id }, { market }] } },
+      ...filterStage,
+      { $sort: { timestamp: -1 } },
+      { $limit: 100 },
       { $project: { _id: 0 } },
     ]);
 
@@ -31,8 +36,6 @@ export default {
 
   async getLiquidityTransactions(query) {
     const endTime = query.endTime ?? new Date();
-    const startTime =
-      query?.startTime ?? dayjs(endTime).subtract(30, "days").toDate();
 
     const result = await Transaction.aggregate([
       { $match: { market: new RegExp(query.market, "i") } },
@@ -59,36 +62,6 @@ export default {
       { $project: { _id: 0 } },
     ]);
 
-    const filled = fillMissingDates(result, startTime, endTime);
-
     return result;
   },
 };
-
-function fillMissingDates(data, startTime, endTime) {
-  const map = data.reduce((a, b) => {
-    if (!a[b.time]) {
-      a[b.time] = b;
-    }
-    return a;
-  }, {});
-
-  const result = [...data];
-
-  const end = dayjs(endTime);
-  let time = dayjs(startTime);
-
-  while (time.isBefore(end)) {
-    let key = dayjs(time).format("YYYY-MM-DD");
-
-    if (!map[key]) {
-      result.push({ time: key, value: 0 });
-    }
-
-    time = time.add(1, "day");
-  }
-
-  return result.sort(
-    (a, b) => dayjs(a.time).valueOf() - dayjs(b.time).valueOf()
-  );
-}

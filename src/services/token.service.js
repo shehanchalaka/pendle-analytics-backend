@@ -1,4 +1,4 @@
-import { Transfer } from "../models";
+import { Token, Transfer } from "../models";
 import { syncTokenTransfers } from "../sync/tokens/transfer";
 
 const NETWORK = {
@@ -7,6 +7,10 @@ const NETWORK = {
 };
 
 export default {
+  model() {
+    return Token;
+  },
+
   async check(network, address) {
     // TODO replace this logic with checking last synced block number
     const found = await Transfer.findOne({

@@ -11,3 +11,5 @@ export { default as Transaction } from "./transaction.model";
 export { default as User } from "./user.model";
 
 export { default as Transfer } from "./transfer.model";
+
+export { default as Price } from "./price.model";

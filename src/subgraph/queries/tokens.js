@@ -8,6 +8,11 @@ export default gql`
       symbol
       decimals
       type
+      forgeId
+      expiry
+      underlyingToken {
+        id
+      }
     }
   }
 `;

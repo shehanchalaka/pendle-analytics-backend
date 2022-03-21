@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 const TokenAmountSchema = new Schema(
   {
-    token: { type: String },
+    token: { type: String, lowercase: true },
     amount: { type: Number },
     amountUSD: { type: Number },
     price: { type: Number },
@@ -16,9 +16,9 @@ const schema = new Schema({
   hash: { type: String },
   block: { type: Number },
   timestamp: { type: Date },
-  market: { type: String, index: true },
-  yieldContract: { type: String, index: true },
-  user: { type: String, index: true },
+  market: { type: String, lowercase: true, index: true },
+  yieldContract: { type: String, lowercase: true, index: true },
+  user: { type: String, lowercase: true, index: true },
   action: { type: String, index: true },
   inputs: { type: [TokenAmountSchema] },
   outputs: { type: [TokenAmountSchema] },

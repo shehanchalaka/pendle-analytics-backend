@@ -4,9 +4,9 @@ const schema = new Schema({
   network: { type: String, index: true },
   block: { type: Number },
   timestamp: { type: Date },
-  token: { type: String, index: true },
-  from: { type: String, index: true },
-  to: { type: String, index: true },
+  token: { type: String, lowercase: true, index: true },
+  from: { type: String, lowercase: true, index: true },
+  to: { type: String, lowercase: true, index: true },
   value: { type: Number },
 });
 

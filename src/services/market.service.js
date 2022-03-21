@@ -1,12 +1,226 @@
-import { Market } from "../models";
+import { Market, Transaction } from "../models";
+import { Price } from "../services";
+import { pushMissingDatesWithNet } from "../utils/helpers";
 
-export async function getMarketMap() {
-  const markets = await Market.find({}).lean();
-  const marketMap = markets.reduce((a, b) => {
-    if (!a[b.market]) {
-      a[b.market] = b;
+export default {
+  model() {
+    return Market;
+  },
+
+  async findByAddress(address) {
+    const fields = ["token0", "token1", "baseToken", "quoteToken"];
+
+    const lookupStages = fields.map((field) => ({
+      $lookup: {
+        from: "tokens",
+        let: { address: `$${field}` },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$address", "$$address"] } } },
+          { $project: { _id: 0 } },
+        ],
+        as: `${field}`,
+      },
+    }));
+
+    const sets = fields.reduce(
+      (a, b) => ({ ...a, [b]: { $first: `$${b}` } }),
+      {}
+    );
+    const setStage = { $set: sets };
+
+    const result = await Market.aggregate([
+      { $match: { address } },
+      ...lookupStages,
+      setStage,
+    ]);
+    if (result.length === 0) throw new Error("Market not found");
+
+    return result?.[0];
+  },
+
+  async findByBaseToken(address) {
+    const fields = ["token0", "token1", "baseToken", "quoteToken"];
+
+    const lookupStages = fields.map((field) => ({
+      $lookup: {
+        from: "tokens",
+        let: { address: `$${field}` },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$address", "$$address"] } } },
+          { $project: { _id: 0 } },
+        ],
+        as: `${field}`,
+      },
+    }));
+
+    const sets = fields.reduce(
+      (a, b) => ({ ...a, [b]: { $first: `$${b}` } }),
+      {}
+    );
+    const setStage = { $set: sets };
+
+    const result = await Market.aggregate([
+      { $match: { baseToken: address } },
+      ...lookupStages,
+      setStage,
+    ]);
+    if (result.length === 0) throw new Error("Market not found");
+
+    return result?.[0];
+  },
+
+  async getStats(query) {
+    const market = query?.market?.toLowerCase();
+
+    const trades = await Transaction.aggregate([
+      { $match: { market } },
+      { $match: { action: "swap" } },
+      {
+        $group: {
+          _id: null,
+          tradingVolumeUSD: { $sum: "$amountUSD" },
+          averageTradingVolumeUSD: { $avg: "$amountUSD" },
+        },
+      },
+      { $project: { _id: 0 } },
+    ]);
+
+    const trade = trades?.[0];
+
+    const results = await Transaction.aggregate([
+      { $match: { market } },
+      {
+        $facet: {
+          joins: [
+            { $match: { action: "join" } },
+            { $unwind: "$inputs" },
+            {
+              $group: {
+                _id: "$inputs.token",
+                joins: { $sum: "$inputs.amount" },
+              },
+            },
+          ],
+          exits: [
+            { $match: { action: "exit" } },
+            { $unwind: "$outputs" },
+            {
+              $group: {
+                _id: "$outputs.token",
+                exits: { $sum: "$outputs.amount" },
+              },
+            },
+          ],
+        },
+      },
+      { $set: { arr: { $concatArrays: ["$joins", "$exits"] } } },
+      { $unwind: "$arr" },
+      { $replaceRoot: { newRoot: "$arr" } },
+      {
+        $group: {
+          _id: "$_id",
+          joins: { $sum: "$joins" },
+          exits: { $sum: "$exits" },
+        },
+      },
+      {
+        $lookup: {
+          from: "tokens",
+          let: { address: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$address", "$$address"] } } },
+            {
+              $project: { _id: 0, address: 1, name: 1, symbol: 1, decimals: 1 },
+            },
+          ],
+          as: "token",
+        },
+      },
+      {
+        $set: {
+          token: { $first: "$token" },
+          reserve: { $subtract: ["$joins", "$exits"] },
+        },
+      },
+      { $project: { _id: 0 } },
+    ]);
+
+    const reserves = [];
+    let tvl = 0;
+
+    for (let item of results) {
+      const res = await Price.getTokenPrice(item.token.address);
+      reserves.push({
+        ...item,
+        price: res.price,
+        reserveUSD: res.price * item.reserve,
+      });
+      tvl += res.price * item.reserve;
     }
-    return a;
-  }, {});
-  return marketMap;
-}
+
+    return { ...trade, reserves, tvl };
+  },
+
+  async getTradingHistory(query) {
+    const market = query?.market?.toLowerCase();
+
+    const results = await Transaction.aggregate([
+      { $match: { market } },
+      {
+        $group: {
+          _id: { $dateToString: { date: "$timestamp", format: "%Y-%m-%d" } },
+          amountUSD: { $sum: "$amountUSD" },
+        },
+      },
+      { $set: { date: "$_id" } },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0 } },
+    ]);
+
+    return results;
+  },
+
+  async getLiquidityHistory(query) {
+    const market = query?.market?.toLowerCase();
+
+    const results = await Transaction.aggregate([
+      { $match: { market } },
+      {
+        $facet: {
+          in: [
+            { $match: { action: "join" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d" },
+                },
+                in: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+          out: [
+            { $match: { action: "exit" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d" },
+                },
+                out: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+        },
+      },
+      { $set: { arr: { $concatArrays: ["$in", "$out"] } } },
+      { $unwind: "$arr" },
+      { $replaceRoot: { newRoot: "$arr" } },
+      { $set: { date: "$_id" } },
+      { $sort: { date: 1 } },
+      { $project: { _id: 0 } },
+    ]);
+
+    const history = pushMissingDatesWithNet(results);
+
+    return history;
+  },
+};
