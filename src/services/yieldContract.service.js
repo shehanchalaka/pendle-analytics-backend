@@ -3,6 +3,10 @@ import { Price } from "../services";
 import { pushMissingDatesWithNet } from "../utils/helpers";
 
 export default {
+  model() {
+    return YieldContract;
+  },
+
   async find(forgeId, expiry, underlyingToken) {
     const id = `${forgeId}-${expiry}-${underlyingToken}`;
     const found = await YieldContract.findOne({ id });
@@ -84,9 +88,9 @@ export default {
 
     return {
       ...doc,
-      mintVolumeUSD: doc.mintVolume * underlyingPrice,
-      redeemVolumeUSD: doc.redeemVolume * underlyingPrice,
-      lockedVolumeUSD: doc.lockedVolume * underlyingPrice,
+      mintVolumeUSD: (doc.mintVolume ?? 0) * underlyingPrice,
+      redeemVolumeUSD: (doc.redeemVolume ?? 0) * underlyingPrice,
+      lockedVolumeUSD: (doc.lockedVolume ?? 0) * underlyingPrice,
     };
   },
 

@@ -4,6 +4,10 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(customParseFormat);
 
+export function toUTC(timestamp) {
+  return dayjs(timestamp).unix();
+}
+
 export function fillMissingValues(data, value, startTime, endTime) {
   const map = data.reduce((a, b) => {
     if (!a[b.time]) {

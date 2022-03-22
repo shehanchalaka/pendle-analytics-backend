@@ -5,7 +5,6 @@ export function setupRoutes(app) {
   app.use("/transactions", require("./transaction.controller").default);
   app.use("/users", require("./user.controller").default);
   app.use("/tokens", require("./token.controller").default);
-  app.use("/data", require("./data.controller").default);
   app.use("/stats", require("./stat.controller").default);
   app.use("/yield-contracts", require("./yieldContract.controller").default);
   app.use("/markets", require("./market.controller").default);

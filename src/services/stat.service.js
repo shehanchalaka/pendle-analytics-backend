@@ -1,172 +1,127 @@
 import { Transaction } from "../models";
-import { Price } from "../services";
+import { Market, YieldContract } from "../services";
 import { NETWORK } from "../utils/constants";
+import { toUTC } from "../utils/helpers";
 
 export default {
   async getStatsByNetwork(chainId, query) {
     const network = NETWORK[chainId] ?? "mainnet";
-    const market = query?.market;
 
-    const tradingVolumes = await Transaction.aggregate([
-      { $match: { network } },
-      { $match: { action: "swap" } },
-      {
-        $lookup: {
-          from: "markets",
-          let: { address: "$market" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$address", "$$address"] } } },
-            { $project: { name: 1, type: 1 } },
-          ],
-          as: "market",
-        },
+    const yieldContracts = await YieldContract.model().find({ network });
+    const otMarkets = await Market.model().find({ network, type: "ot" });
+    const ytMarkets = await Market.model().find({ network, type: "yt" });
+
+    const forges = await Promise.allSettled(
+      yieldContracts.map((t) =>
+        YieldContract.getStats({
+          forgeId: t.forgeId,
+          expiry: toUTC(t.expiry),
+          underlyingToken: t.underlyingToken,
+        })
+      )
+    );
+
+    let lockedVolumeUSD = 0;
+    let mintVolumeUSD = 0;
+
+    forges.forEach((item) => {
+      if (item.status !== "fulfilled") return;
+
+      const value = item.value;
+      lockedVolumeUSD += value?.lockedVolumeUSD ?? 0;
+      mintVolumeUSD += value?.mintVolumeUSD ?? 0;
+    });
+
+    const ot_markets = await Promise.allSettled(
+      otMarkets.map((t) => Market.getStats({ market: t.address }))
+    );
+
+    let otTvl = 0;
+    let otTradingVolumeUSD = 0;
+    let otAverageTradeSizeUSD = 0;
+
+    ot_markets.forEach((item) => {
+      if (item.status !== "fulfilled") return;
+
+      const value = item.value;
+      otTvl += value?.tvl ?? 0;
+      otTradingVolumeUSD += value?.tradingVolumeUSD ?? 0;
+      otAverageTradeSizeUSD += value?.averageTradingVolumeUSD ?? 0;
+    });
+
+    otAverageTradeSizeUSD /= ot_markets.length;
+
+    const yt_markets = await Promise.allSettled(
+      ytMarkets.map((t) => Market.getStats({ market: t.address }))
+    );
+
+    let ytTvl = 0;
+    let ytTradingVolumeUSD = 0;
+    let ytAverageTradeSizeUSD = 0;
+
+    yt_markets.forEach((item) => {
+      if (item.status !== "fulfilled") return;
+
+      const value = item.value;
+      ytTvl += value?.tvl ?? 0;
+      ytTradingVolumeUSD += value?.tradingVolumeUSD ?? 0;
+      ytAverageTradeSizeUSD += value?.averageTradingVolumeUSD ?? 0;
+    });
+
+    ytAverageTradeSizeUSD /= yt_markets.length;
+
+    return {
+      forges: {
+        lockedVolumeUSD,
+        mintVolumeUSD,
       },
-      { $set: { market: { $first: "$market" } } },
-      {
-        $group: {
-          _id: "$market.type",
-          amountUSD: { $sum: "$amountUSD" },
-          average: { $avg: "$amountUSD" },
-        },
+      otMarkets: {
+        tvl: otTvl,
+        tradingVolumeUSD: otTradingVolumeUSD,
+        averageTradeSizeUSD: otAverageTradeSizeUSD,
       },
-    ]);
-
-    const forges = await Transaction.aggregate([
-      { $match: { network } },
-      {
-        $facet: {
-          mints: [
-            { $match: { action: "mint" } },
-            { $unwind: "$inputs" },
-            { $sort: { timestamp: -1 } },
-            {
-              $group: {
-                _id: "$inputs.token",
-                amount: { $sum: "$inputs.amount" },
-                price: { $first: "$inputs.price" },
-                timestamp: { $first: "$timestamp" },
-                action: { $first: "$action" },
-              },
-            },
-          ],
-          redeems: [
-            { $match: { action: "redeem" } },
-            { $unwind: "$outputs" },
-            { $sort: { timestamp: -1 } },
-            {
-              $group: {
-                _id: "$outputs.token",
-                amount: { $sum: "$outputs.amount" },
-                price: { $first: "$outputs.price" },
-                timestamp: { $first: "$timestamp" },
-                action: { $first: "$action" },
-              },
-            },
-          ],
-        },
+      ytMarkets: {
+        tvl: ytTvl,
+        tradingVolumeUSD: ytTradingVolumeUSD,
+        averageTradeSizeUSD: ytAverageTradeSizeUSD,
       },
-      { $set: { data: { $concatArrays: ["$mints", "$redeems"] } } },
-      { $project: { mints: 0, redeems: 0 } },
-      { $unwind: "$data" },
-      { $replaceRoot: { newRoot: "$data" } },
-      { $sort: { timestamp: -1 } },
-      {
-        $group: {
-          _id: "$_id",
-          mints: {
-            $sum: { $cond: [{ $eq: ["$action", "mint"] }, "$amount", 0] },
-          },
-          redeems: {
-            $sum: { $cond: [{ $eq: ["$action", "redeem"] }, "$amount", 0] },
-          },
-          price: { $first: "$price" },
-          timestamp: { $max: "$timestamp" },
-        },
-      },
-      { $set: { balance: { $subtract: ["$mints", "$redeems"] } } },
-      {
-        $set: {
-          mintsUSD: { $multiply: ["$mints", "$price"] },
-          redeemsUSD: { $multiply: ["$redeems", "$price"] },
-          balanceUSD: { $multiply: ["$balance", "$price"] },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          mintsUSD: { $sum: "$mintsUSD" },
-          redeemsUSD: { $sum: "$redeemsUSD" },
-          balanceUSD: { $sum: "$balanceUSD" },
-        },
-      },
-      { $project: { _id: 0 } },
-    ]);
+    };
+  },
 
-    const forge = forges?.[0];
-    const otStats = tradingVolumes.find((t) => t._id === "ot");
-    const ytStats = tradingVolumes.find((t) => t._id === "yt");
+  async getAllForgesHistory(chainId, query) {
+    const network = NETWORK[chainId] ?? "mainnet";
 
-    const results = await Transaction.aggregate([
-      {
-        $facet: {
-          joins: [
-            { $match: { network } },
-            { $match: { action: "join" } },
-            { $unwind: "$inputs" },
-            {
-              $group: {
-                _id: { market: "$market", token: "$inputs.token" },
-                joins: { $sum: "$inputs.amount" },
-              },
-            },
-          ],
-          exits: [
-            { $match: { network } },
-            { $match: { action: "exit" } },
-            { $unwind: "$outputs" },
-            {
-              $group: {
-                _id: "$market",
-                exits: { $sum: "$outputs.amount" },
-              },
-            },
-          ],
-        },
-      },
-      // { $set: { arr: { $concatArrays: ["$joins", "$exits"] } } },
-      // { $unwind: "$arr" },
-      // {
-      //   $group: {
-      //     _id: "$arr._id",
-      //     joins: { $sum: "$arr.joins" },
-      //     exits: { $sum: "$arr.exits" },
-      //   },
-      // },
-      // { $set: { balance: { $subtract: ["$joins", "$exits"] } } },
-    ]);
+    const yieldContracts = await YieldContract.model().find({ network });
 
-    let tvl = 0;
+    const forges = await Promise.allSettled(
+      yieldContracts.map((t) =>
+        YieldContract.getHistoryChart({
+          forgeId: t.forgeId,
+          expiry: toUTC(t.expiry),
+          underlyingToken: t.underlyingToken,
+        })
+      )
+    );
 
-    // for (let result of results) {
-    //   const res = await Price.getTokenPrice(result._id);
-    //   tvl += res.price * result.balance;
-    // }
+    return forges;
+  },
 
-    return { results, tvl };
+  async getAllTradingHistory(chainId, query) {
+    const network = NETWORK[chainId] ?? "mainnet";
+    const type = query?.type ?? undefined;
 
-    //   return {
-    //     forges: {
-    //       balanceUSD: forge.balanceUSD,
-    //       totalMintedUSD: forge.mintsUSD,
-    //     },
-    //     otMarkets: {
-    //       tradingVolumeUSD: otStats.amountUSD,
-    //       averageTradeSizeUSD: otStats.average,
-    //     },
-    //     ytMarkets: {
-    //       tradingVolumeUSD: ytStats.amountUSD,
-    //       averageTradeSizeUSD: ytStats.average,
-    //     },
-    //   };
+    const otMarkets = await Market.model().find({ network, type });
+
+    const ot_markets = await Promise.allSettled(
+      otMarkets.map((t) => Market.getTradingHistory({ market: t.address }))
+    );
+
+    const charts = [];
+
+    ot_markets.forEach((market) => {
+      charts.push(market.value);
+    });
+
+    return charts;
   },
 };

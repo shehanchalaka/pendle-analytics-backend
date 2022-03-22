@@ -12,4 +12,28 @@ router.get("/:chainId", async (req, res, next) => {
   }
 });
 
+router.get("/:chainId/forge-history", async (req, res, next) => {
+  try {
+    const result = await Stat.getAllForgesHistory(
+      req.params.chainId,
+      req.query
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:chainId/trading-history", async (req, res, next) => {
+  try {
+    const result = await Stat.getAllTradingHistory(
+      req.params.chainId,
+      req.query
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
