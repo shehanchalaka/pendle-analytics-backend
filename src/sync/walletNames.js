@@ -1,6 +1,5 @@
 import { provider } from "./index";
-import { ethers, Contract } from "ethers";
-import ENS, { getEnsAddress } from "@ensdomains/ensjs";
+import { Contract } from "ethers";
 import namehash from "eth-ens-namehash";
 import ReverseRecordsAbi from "../abis/ReverseRecords.json";
 import { User } from "../models";
