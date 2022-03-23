@@ -12,12 +12,17 @@ const NETWORKISH_TO_CHAIN_ID = {
   avalanche: 43114,
 };
 
-export async function get({ network, tokenAddress, startBlock, endBlock }) {
+export async function getTokenTransfers({
+  network,
+  tokenAddress,
+  startBlock,
+  endBlock,
+}) {
   const chainId = NETWORKISH_TO_CHAIN_ID[network];
 
   const results = [];
   for (let _start = startBlock; _start < endBlock; _start += MAX_BLOCK_RANGE) {
-    const _end = Math.min(endBlock, _start + MAX_BLOCK_RANGE) - 1;
+    const _end = Math.min(endBlock, _start + MAX_BLOCK_RANGE);
 
     const result = await batcher({
       chainId,

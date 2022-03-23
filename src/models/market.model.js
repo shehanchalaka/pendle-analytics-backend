@@ -13,6 +13,10 @@ const schema = new Schema({
   quoteToken: { type: String, lowercase: true, index: true },
   startTime: { type: Date },
   expiry: { type: Date },
+  decimals: { type: Number },
+  reserve0: { type: Number },
+  reserve1: { type: Number },
+  totalSupply: { type: Number },
 });
 
 export default model("Market", schema);

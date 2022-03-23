@@ -8,6 +8,7 @@ export function setupRoutes(app) {
   app.use("/stats", require("./stat.controller").default);
   app.use("/yield-contracts", require("./yieldContract.controller").default);
   app.use("/markets", require("./market.controller").default);
+  app.use("/pendle", require("./pendle.controller").default);
 
   // 404 handler
   app.use((req, res) => res.status(404).send("Not Found"));

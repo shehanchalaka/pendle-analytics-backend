@@ -1,7 +1,11 @@
+import { ethers, Contract } from "ethers";
 import { fetchAll, ANALYTICS_SUBGRAPH_URL } from "../index";
 import query from "../queries/markets";
 import { Sync as SyncService } from "../../services";
 import { Market } from "../../models";
+import BigNumber from "bignumber.js";
+import { PROVIDERS } from "../../sync";
+import PendleMarketAbi from "../../abis/PendleMarket.json";
 
 export async function syncMarkets(network, syncFromBeginning = false) {
   const url = ANALYTICS_SUBGRAPH_URL[network];
@@ -34,6 +38,7 @@ export async function syncMarkets(network, syncFromBeginning = false) {
 
   await Market.bulkWrite(bwQuery);
   await syncHardcodedMarkets();
+  await syncStartTimes();
 
   console.log(`Synced ${entity}`);
 }
@@ -80,4 +85,29 @@ async function syncHardcodedMarkets() {
     },
   }));
   await Market.bulkWrite(bwQuery);
+}
+
+export async function syncStartTimes() {
+  const markets = await Market.find({ type: "yt" });
+  const results = await Promise.all(
+    markets.map((market) => getStartEpoch(market))
+  );
+
+  const bwQuery = results.map((result) => ({
+    updateOne: {
+      filter: { address: result.address },
+      update: { startTime: 1000 * result.startEpoch },
+    },
+  }));
+  await Market.bulkWrite(bwQuery);
+}
+
+async function getStartEpoch({ address, network }) {
+  const provider = PROVIDERS[network];
+  const contract = new Contract(address, PendleMarketAbi, provider);
+
+  const start = await contract.start();
+  const startEpoch = parseInt(start.toString());
+
+  return { address, startEpoch };
 }

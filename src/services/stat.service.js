@@ -1,11 +1,11 @@
 import { Transaction } from "../models";
 import { Market, YieldContract } from "../services";
-import { NETWORK } from "../utils/constants";
+import { CHAIN_ID_TO_NETWORK } from "../utils/constants";
 import { toUTC } from "../utils/helpers";
 
 export default {
   async getStatsByNetwork(chainId, query) {
-    const network = NETWORK[chainId] ?? "mainnet";
+    const network = CHAIN_ID_TO_NETWORK[chainId] ?? "mainnet";
 
     const yieldContracts = await YieldContract.model().find({ network });
     const otMarkets = await Market.model().find({ network, type: "ot" });
@@ -89,7 +89,7 @@ export default {
   },
 
   async getAllForgesHistory(chainId, query) {
-    const network = NETWORK[chainId] ?? "mainnet";
+    const network = CHAIN_ID_TO_NETWORK[chainId] ?? "mainnet";
 
     const yieldContracts = await YieldContract.model().find({ network });
 
@@ -107,7 +107,7 @@ export default {
   },
 
   async getAllTradingHistory(chainId, query) {
-    const network = NETWORK[chainId] ?? "mainnet";
+    const network = CHAIN_ID_TO_NETWORK[chainId] ?? "mainnet";
     const type = query?.type ?? undefined;
 
     const otMarkets = await Market.model().find({ network, type });

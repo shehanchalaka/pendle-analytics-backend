@@ -6,6 +6,7 @@ import morgan from "morgan";
 import mongoose from "mongoose";
 import { setupRoutes } from "./controllers";
 import { setupJobs } from "./jobs";
+import { syncMarketReserves } from "./sync/marketReserves";
 
 (async () => {
   await mongoose.connect(DB_URL);
@@ -20,6 +21,7 @@ import { setupJobs } from "./jobs";
   app.use(morgan("dev"));
 
   await setupJobs();
+  syncMarketReserves();
 
   app.get("/", (req, res) => {
     res.json({ status: "healthy", message: "Pendle analytics service" });

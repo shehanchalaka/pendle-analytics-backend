@@ -1,10 +1,6 @@
 import { Token, Transfer } from "../models";
 import { syncTokenTransfers } from "../sync/tokens/transfer";
-
-const NETWORK = {
-  1: "mainnet",
-  43114: "avalanche",
-};
+import { CHAIN_ID_TO_NETWORK } from "../utils/constants";
 
 export default {
   model() {
@@ -13,18 +9,20 @@ export default {
 
   async check(network, address) {
     // TODO replace this logic with checking last synced block number
-    const found = await Transfer.findOne({
-      network,
-      token: new RegExp(address, "i"),
-    });
-    if (!found) {
-      await syncTokenTransfers(network, address);
-    }
+    // const found = await Transfer.findOne({
+    //   network,
+    //   token: new RegExp(address, "i"),
+    // });
+    // if (!found) {
+    await syncTokenTransfers(network, address);
+    // }
   },
 
   async getToken(address, query) {
     const chainId = query.chainId ?? 1;
-    const network = NETWORK[chainId];
+    const network = CHAIN_ID_TO_NETWORK[chainId];
+
+    console.log(chainId, network);
 
     await this.check(network, address);
 
@@ -32,14 +30,6 @@ export default {
       { $match: { network } },
       { $match: { token: new RegExp(address, "i") } },
     ]);
-
-    if (transfers.length === 0) {
-      await syncTokenTransfers(network, address);
-      transfers = await Transfer.aggregate([
-        { $match: { network } },
-        { $match: { token: new RegExp(address, "i") } },
-      ]);
-    }
 
     const map = {};
 

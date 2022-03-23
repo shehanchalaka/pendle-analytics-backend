@@ -164,6 +164,8 @@ export default {
   async getTradingHistory(query) {
     const market = query?.market?.toLowerCase();
 
+    const _market = await Market.findOne({ address: market }).select("-_id");
+
     const results = await Transaction.aggregate([
       { $match: { market } },
       {
@@ -177,11 +179,13 @@ export default {
       { $project: { _id: 0 } },
     ]);
 
-    return results;
+    return { market: _market, history: results };
   },
 
   async getLiquidityHistory(query) {
     const market = query?.market?.toLowerCase();
+
+    const _market = await Market.findOne({ address: market }).select("-_id");
 
     const results = await Transaction.aggregate([
       { $match: { market } },
@@ -221,6 +225,6 @@ export default {
 
     const history = pushMissingDatesWithNet(results);
 
-    return history;
+    return { market: _market, history };
   },
 };

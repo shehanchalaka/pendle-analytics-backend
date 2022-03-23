@@ -8,7 +8,8 @@
     "start": "npm run build && node ./bin/server",
     "build": "babel src/ -d lib/ --copy-files",
     "watch": "babel --watch src/ -d lib/ --copy-files",
-    "test": "jest --watchAll"
+    "test": "jest --watchAll",
+    "build:docker": "docker buildx build --platform=linux/amd64 -t shehanchalaka/data-backend:latest --push ."
   },
   "dependencies": {
     "@ensdomains/ensjs": "^2.1.0",

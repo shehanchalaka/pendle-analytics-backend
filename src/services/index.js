@@ -13,3 +13,5 @@ export { default as Price } from "./price.service";
 export { default as Stat } from "./stat.service";
 
 export { default as YieldContract } from "./yieldContract.service";
+
+export { default as Pendle } from "./pendle.service";

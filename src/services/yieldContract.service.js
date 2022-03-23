@@ -100,6 +100,8 @@ export default {
     const underlyingToken = query?.underlyingToken?.toLowerCase();
     const id = `${forgeId}-${expiry}-${underlyingToken}`;
 
+    const yieldContract = await YieldContract.findOne({ id }).select("-_id");
+
     const results = await Transaction.aggregate([
       { $match: { yieldContract: id } },
       {
@@ -138,6 +140,6 @@ export default {
 
     const history = pushMissingDatesWithNet(results);
 
-    return history;
+    return { yieldContract, history };
   },
 };
