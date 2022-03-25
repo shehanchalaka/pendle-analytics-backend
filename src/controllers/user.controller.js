@@ -14,7 +14,10 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:address", async (req, res, next) => {
   try {
-    const result = await User.getUser(req.params.address, req.query);
+    const result = await User.getUser({
+      ...req.query,
+      address: req.params.address,
+    });
     res.json(result);
   } catch (error) {
     next(error);

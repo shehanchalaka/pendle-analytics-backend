@@ -10,7 +10,7 @@ export default {
     const address = params?.address?.toLowerCase();
     const chainId = params?.chainId ?? 1;
     const sortBy = params?.sortBy ?? "totalTransacted";
-    const sortDirection = parseInt(params?.sortDirection) ?? -1;
+    const sortDirection = parseInt(params?.sortDirection ?? -1);
     const network = CHAIN_ID_TO_NETWORK[chainId];
 
     const sortStage = [{ $sort: { [sortBy]: sortDirection } }];
