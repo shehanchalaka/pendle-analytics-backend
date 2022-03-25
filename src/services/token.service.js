@@ -1,5 +1,4 @@
-import { Token, Transfer } from "../models";
-import { syncTokenTransfers } from "../sync/tokens/transfer";
+import { Token, UserToken } from "../models";
 import { CHAIN_ID_TO_NETWORK } from "../utils/constants";
 
 export default {
@@ -7,68 +6,36 @@ export default {
     return Token;
   },
 
-  async check(network, address) {
-    // TODO replace this logic with checking last synced block number
-    // const found = await Transfer.findOne({
-    //   network,
-    //   token: new RegExp(address, "i"),
-    // });
-    // if (!found) {
-    await syncTokenTransfers(network, address);
-    // }
-  },
-
-  async getToken(address, query) {
-    const chainId = query.chainId ?? 1;
+  async getTokenHolders(params) {
+    const address = params?.address?.toLowerCase();
+    const chainId = params?.chainId ?? 1;
+    const sortBy = params?.sortBy ?? "totalTransacted";
+    const sortDirection = parseInt(params?.sortDirection) ?? -1;
     const network = CHAIN_ID_TO_NETWORK[chainId];
 
-    console.log(chainId, network);
+    const sortStage = [{ $sort: { [sortBy]: sortDirection } }];
 
-    await this.check(network, address);
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-    let transfers = await Transfer.aggregate([
+    const result = await UserToken.aggregate([
       { $match: { network } },
-      { $match: { token: new RegExp(address, "i") } },
+      { $match: { token: address } },
+      { $match: { user: { $ne: ZERO_ADDRESS } } },
+      {
+        $set: {
+          address: "$user",
+          totalTransacted: { $add: ["$totalReceived", "$totalSent"] },
+          name: "",
+        },
+      },
+      ...sortStage,
+      {
+        $project: { _id: 0, id: 0, user: 0 },
+      },
     ]);
 
-    const map = {};
+    const holders = result.filter((t) => t.balance > 0).length;
 
-    transfers.forEach((t) => {
-      if (!map[t.from]) {
-        map[t.from] = {
-          address: t.from,
-          name: t.name,
-          totalSent: t.value,
-          totalReceived: 0,
-          balance: 0 - t.value,
-          totalTransacted: t.value,
-        };
-      } else {
-        map[t.from].totalSent += t.value;
-        map[t.from].balance -= t.value;
-        map[t.from].totalTransacted += t.value;
-      }
-
-      if (!map[t.to]) {
-        map[t.to] = {
-          address: t.to,
-          name: t.name,
-          totalSent: 0,
-          totalReceived: t.value,
-          balance: t.value,
-          totalTransacted: t.value,
-        };
-      } else {
-        map[t.to].totalReceived += t.value;
-        map[t.to].balance += t.value;
-        map[t.to].totalTransacted += t.value;
-      }
-    });
-
-    const result = Object.values(map).sort(
-      (a, b) => b.totalTransacted - a.totalTransacted
-    );
-
-    return { result, total: result.length };
+    return { holders, result };
   },
 };

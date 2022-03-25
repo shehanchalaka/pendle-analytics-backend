@@ -12,7 +12,6 @@ export async function syncUsers(network, syncFromBeginning = false) {
     lastId = await SyncService.getLastIdOf(entity, network);
   }
   const result = await fetchAll(url, query, { lastId });
-  await SyncService.updateLastIdOf(entity, network, result.lastId);
 
   const bwQuery = result.documents.map((doc) => ({
     updateOne: {
@@ -23,5 +22,6 @@ export async function syncUsers(network, syncFromBeginning = false) {
   }));
 
   await User.bulkWrite(bwQuery);
+  await SyncService.updateLastIdOf(entity, network, result.lastId);
   console.log(`Synced ${entity}`);
 }

@@ -1,6 +1,5 @@
 import { getPendleMarketData, getPendleHistory } from "../adapters/Coingecko";
-import { Token } from "../services";
-import { syncTokenTransfers } from "../sync/tokens/transfer";
+import { UserToken } from "../models";
 import { CHAIN_ID_TO_NETWORK, PENDLE_TOKEN_ADDRESS } from "../utils/constants";
 
 export default {
@@ -11,7 +10,15 @@ export default {
 
     const marketData = await getPendleMarketData();
 
-    return { ...marketData };
+    const results = await UserToken.aggregate([
+      { $match: { network } },
+      { $match: { token: address } },
+      { $match: { balance: { $gt: 0 } } },
+      { $count: "holders" },
+    ]);
+    const holders = results?.[0]?.holders ?? 0;
+
+    return { ...marketData, holders };
   },
 
   async getPendleHistory() {

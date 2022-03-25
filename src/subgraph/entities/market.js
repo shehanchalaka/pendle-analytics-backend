@@ -16,7 +16,6 @@ export async function syncMarkets(network, syncFromBeginning = false) {
     lastId = await SyncService.getLastIdOf(entity, network);
   }
   const result = await fetchAll(url, query, { lastId });
-  await SyncService.updateLastIdOf(entity, network, result.lastId);
 
   const bwQuery = result.documents.map((doc) => ({
     updateOne: {
@@ -37,6 +36,7 @@ export async function syncMarkets(network, syncFromBeginning = false) {
   }));
 
   await Market.bulkWrite(bwQuery);
+  await SyncService.updateLastIdOf(entity, network, result.lastId);
   await syncHardcodedMarkets();
   await syncStartTimes();
 
