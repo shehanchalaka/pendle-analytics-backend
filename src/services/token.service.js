@@ -12,6 +12,8 @@ export default {
     const sortBy = params?.sortBy ?? "totalTransacted";
     const sortDirection = parseInt(params?.sortDirection ?? -1);
     const network = CHAIN_ID_TO_NETWORK[chainId];
+    const skip = parseInt(params?.skip ?? 0);
+    const limit = parseInt(params?.limit ?? 20);
 
     const sortStage = [{ $sort: { [sortBy]: sortDirection } }];
 
@@ -20,6 +22,7 @@ export default {
     const result = await UserToken.aggregate([
       { $match: { network } },
       { $match: { token: address } },
+      { $match: { balance: { $gt: 0 } } },
       { $match: { user: { $ne: ZERO_ADDRESS } } },
       {
         $set: {
@@ -30,12 +33,19 @@ export default {
       },
       ...sortStage,
       {
-        $project: { _id: 0, id: 0, user: 0 },
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            { $project: { _id: 0, id: 0, user: 0 } },
+          ],
+          total: [{ $count: "total" }],
+        },
       },
+      { $replaceWith: { $mergeObjects: ["$$ROOT", { $first: "$total" }] } },
+      { $set: { skip, limit } },
     ]);
 
-    const holders = result.filter((t) => t.balance > 0).length;
-
-    return { holders, result };
+    return result?.[0];
   },
 };

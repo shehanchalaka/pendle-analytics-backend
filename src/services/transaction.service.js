@@ -1,13 +1,14 @@
 import { Transaction } from "../models";
-import { Price, YieldContract } from "../services";
 
 export default {
-  async getTransactions(query) {
-    const forgeId = query?.forgeId?.toLowerCase();
-    const expiry = query?.expiry;
-    const underlyingToken = query?.underlyingToken?.toLowerCase();
-    const market = query?.market?.toLowerCase();
-    const filter = query?.filter?.toLowerCase() ?? "all";
+  async getTransactions(params) {
+    const forgeId = params?.forgeId?.toLowerCase();
+    const expiry = params?.expiry;
+    const underlyingToken = params?.underlyingToken?.toLowerCase();
+    const market = params?.market?.toLowerCase();
+    const filter = params?.filter?.toLowerCase() ?? "all";
+    const skip = parseInt(params?.skip ?? 0);
+    const limit = parseInt(params?.limit ?? 20);
     const id = `${forgeId}-${expiry}-${underlyingToken}`;
 
     const filterStage = [];
@@ -27,11 +28,17 @@ export default {
       { $match: { $or: [{ yieldContract: id }, { market }] } },
       ...filterStage,
       { $sort: { timestamp: -1 } },
-      { $limit: 100 },
-      { $project: { _id: 0 } },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }, { $project: { _id: 0 } }],
+          total: [{ $count: "total" }],
+        },
+      },
+      { $replaceWith: { $mergeObjects: ["$$ROOT", { $first: "$total" }] } },
+      { $set: { skip, limit } },
     ]);
 
-    return result;
+    return result?.[0];
   },
 
   async getLiquidityTransactions(query) {

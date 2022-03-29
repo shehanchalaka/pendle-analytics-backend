@@ -7,11 +7,16 @@ export default {
     const sortBy = params?.sortBy ?? "total";
     const sortDirection = parseInt(params?.sortDirection ?? -1);
     const network = CHAIN_ID_TO_NETWORK[chainId];
+    const skip = parseInt(params?.skip ?? 0);
+    const limit = parseInt(params?.limit ?? 20);
+    const q = params?.q?.trim();
 
+    const filterStage = [{ $match: { address: new RegExp(q, "i") } }];
     const sortStage = [{ $sort: { [sortBy]: sortDirection } }];
 
     const result = await User.aggregate([
       { $match: { network } },
+      ...filterStage,
       {
         $lookup: {
           from: "transactions",
@@ -64,12 +69,22 @@ export default {
         },
       },
       ...sortStage,
-      { $limit: 1000 },
-      { $set: { address: "$_id" } },
-      { $project: { _id: 0 } },
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            { $set: { address: "$_id" } },
+            { $project: { _id: 0 } },
+          ],
+          total: [{ $count: "total" }],
+        },
+      },
+      { $replaceWith: { $mergeObjects: ["$$ROOT", { $first: "$total" }] } },
+      { $set: { skip, limit } },
     ]);
 
-    return result;
+    return result?.[0];
   },
 
   async getUser(params) {
