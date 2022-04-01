@@ -17,6 +17,7 @@ const schema = new Schema({
   reserve0: { type: Number },
   reserve1: { type: Number },
   totalSupply: { type: Number },
+  ytWeight: { type: Number },
 });
 
 export default model("Market", schema);

@@ -70,7 +70,9 @@ export default {
   },
 
   async getStats(query) {
-    const market = query?.market?.toLowerCase();
+    const marketAddress = query?.market?.toLowerCase();
+
+    const market = await this.findByAddress(marketAddress);
 
     const trades = await Transaction.aggregate([
       { $match: { market } },
@@ -87,78 +89,12 @@ export default {
 
     const trade = trades?.[0];
 
-    const results = await Transaction.aggregate([
-      { $match: { market } },
-      {
-        $facet: {
-          joins: [
-            { $match: { action: "join" } },
-            { $unwind: "$inputs" },
-            {
-              $group: {
-                _id: "$inputs.token",
-                joins: { $sum: "$inputs.amount" },
-              },
-            },
-          ],
-          exits: [
-            { $match: { action: "exit" } },
-            { $unwind: "$outputs" },
-            {
-              $group: {
-                _id: "$outputs.token",
-                exits: { $sum: "$outputs.amount" },
-              },
-            },
-          ],
-        },
-      },
-      { $set: { arr: { $concatArrays: ["$joins", "$exits"] } } },
-      { $unwind: "$arr" },
-      { $replaceRoot: { newRoot: "$arr" } },
-      {
-        $group: {
-          _id: "$_id",
-          joins: { $sum: "$joins" },
-          exits: { $sum: "$exits" },
-        },
-      },
-      {
-        $lookup: {
-          from: "tokens",
-          let: { address: "$_id" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$address", "$$address"] } } },
-            {
-              $project: { _id: 0, address: 1, name: 1, symbol: 1, decimals: 1 },
-            },
-          ],
-          as: "token",
-        },
-      },
-      {
-        $set: {
-          token: { $first: "$token" },
-          reserve: { $subtract: ["$joins", "$exits"] },
-        },
-      },
-      { $project: { _id: 0 } },
-    ]);
+    const token0 = await Price.getTokenPrice(market.token0.address);
 
-    const reserves = [];
-    let tvl = 0;
+    const weight = market.type === "yt" ? market.ytWeight : 0.5;
+    const tvl = (market.reserve0 * token0.price) / weight;
 
-    for (let item of results) {
-      const res = await Price.getTokenPrice(item.token.address);
-      reserves.push({
-        ...item,
-        price: res.price,
-        reserveUSD: res.price * item.reserve,
-      });
-      tvl += res.price * item.reserve;
-    }
-
-    return { ...trade, reserves, tvl };
+    return { ...trade, tvl, token0, market };
   },
 
   async getTradingHistory(query) {

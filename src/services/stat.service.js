@@ -119,7 +119,9 @@ export default {
     const charts = [];
 
     ot_markets.forEach((market) => {
-      charts.push(market.value);
+      if (market.value) {
+        charts.push(market.value);
+      }
     });
 
     return charts;

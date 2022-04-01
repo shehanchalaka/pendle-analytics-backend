@@ -2,7 +2,7 @@ import { Agenda } from "agenda/es";
 import mongoose from "mongoose";
 import { DB_URL } from "../config";
 import { syncSubgraph } from "../subgraph";
-import { syncTokenPrices } from "../sync/tokenPrices";
+import { syncBlockchain } from "../sync";
 
 const agenda = new Agenda({
   db: { address: DB_URL, options: { useUnifiedTopology: true } },
@@ -38,6 +38,5 @@ async function handleSyncSubgraph(job) {
 }
 
 async function handleSyncTokenPrices(job) {
-  console.log("sync token prices");
-  await syncTokenPrices();
+  await syncBlockchain();
 }

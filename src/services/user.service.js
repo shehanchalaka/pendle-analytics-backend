@@ -92,12 +92,7 @@ export default {
     const chainId = params?.chainId ?? 1;
     const network = CHAIN_ID_TO_NETWORK[chainId];
 
-    const transactions = await Transaction.aggregate([
-      { $match: { network } },
-      { $match: { user: address } },
-    ]);
-
-    const balances = await UserToken.aggregate([
+    const results = await UserToken.aggregate([
       { $match: { network } },
       { $match: { user: address } },
       {
@@ -122,8 +117,15 @@ export default {
       },
       { $sort: { balance: -1 } },
       { $set: { token: { $first: "$token" } } },
+      { $project: { _id: 0 } },
+      {
+        $facet: {
+          active: [{ $match: { balance: { $gt: 0 } } }],
+          inactive: [{ $match: { balance: { $lte: 0 } } }],
+        },
+      },
     ]);
 
-    return { balances };
+    return { balances: results?.[0] };
   },
 };

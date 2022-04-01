@@ -4,6 +4,8 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(customParseFormat);
 
+export const RONE = new BigNumber(2).pow(40);
+
 export function pow10(n) {
   return new BigNumber(10).pow(n);
 }
