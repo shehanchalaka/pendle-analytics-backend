@@ -1,6 +1,6 @@
 import { Market, Transaction } from "../models";
 import { Price } from "../services";
-import { pushMissingDatesWithNet } from "../utils/helpers";
+import { getDataset, getDatasetWithNet } from "../utils/helpers";
 
 export default {
   model() {
@@ -166,20 +166,36 @@ export default {
 
     const _market = await Market.findOne({ address: market }).select("-_id");
 
-    const results = await Transaction.aggregate([
+    const result_daily = await Transaction.aggregate([
       { $match: { market } },
       {
         $group: {
           _id: { $dateToString: { date: "$timestamp", format: "%Y-%m-%d" } },
-          amountUSD: { $sum: "$amountUSD" },
+          value: { $sum: "$amountUSD" },
         },
       },
-      { $set: { date: "$_id" } },
-      { $sort: { _id: 1 } },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
       { $project: { _id: 0 } },
     ]);
 
-    return { market: _market, history: results };
+    const result_hourly = await Transaction.aggregate([
+      { $match: { market } },
+      {
+        $group: {
+          _id: { $dateToString: { date: "$timestamp", format: "%Y-%m-%d-%H" } },
+          value: { $sum: "$amountUSD" },
+        },
+      },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
+      { $project: { _id: 0 } },
+    ]);
+
+    const daily = getDataset(result_daily, "daily");
+    const hourly = getDataset(result_hourly, "hourly");
+
+    return { market: _market, history: { daily, hourly } };
   },
 
   async getLiquidityHistory(query) {
@@ -187,7 +203,7 @@ export default {
 
     const _market = await Market.findOne({ address: market }).select("-_id");
 
-    const results = await Transaction.aggregate([
+    const result_daily = await Transaction.aggregate([
       { $match: { market } },
       {
         $facet: {
@@ -218,13 +234,50 @@ export default {
       { $set: { arr: { $concatArrays: ["$in", "$out"] } } },
       { $unwind: "$arr" },
       { $replaceRoot: { newRoot: "$arr" } },
-      { $set: { date: "$_id" } },
-      { $sort: { date: 1 } },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
       { $project: { _id: 0 } },
     ]);
 
-    const history = pushMissingDatesWithNet(results);
+    const result_hourly = await Transaction.aggregate([
+      { $match: { market } },
+      {
+        $facet: {
+          in: [
+            { $match: { action: "join" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d-%H" },
+                },
+                in: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+          out: [
+            { $match: { action: "exit" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d-%H" },
+                },
+                out: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+        },
+      },
+      { $set: { arr: { $concatArrays: ["$in", "$out"] } } },
+      { $unwind: "$arr" },
+      { $replaceRoot: { newRoot: "$arr" } },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
+      { $project: { _id: 0 } },
+    ]);
 
-    return { market: _market, history };
+    const daily = getDatasetWithNet(result_daily, "daily");
+    const hourly = getDatasetWithNet(result_hourly, "hourly");
+
+    return { market: _market, history: { daily, hourly } };
   },
 };

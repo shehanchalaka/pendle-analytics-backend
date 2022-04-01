@@ -4,82 +4,100 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(customParseFormat);
 
-export function toUTC(timestamp) {
-  return dayjs(timestamp).unix();
-}
-
-export function fillMissingValues(data, value, startTime, endTime) {
-  const map = data.reduce((a, b) => {
-    if (!a[b.time]) {
-      a[b.time] = b;
-    }
-    return a;
-  }, {});
-
-  const result = [...data];
-
-  const end = dayjs(endTime);
-  let time = dayjs(startTime);
-
-  while (time.isBefore(end)) {
-    let key = dayjs(time).format("YYYY-MM-DD");
-
-    if (!map[key]) {
-      result.push({ ...value, time: key });
-    }
-
-    time = time.add(1, "day");
-  }
-
-  return result.sort(
-    (a, b) => dayjs(a.time).valueOf() - dayjs(b.time).valueOf()
-  );
-}
-
 export function pow10(n) {
   return new BigNumber(10).pow(n);
 }
 
-export function pushMissingDatesWithNet(array) {
-  if (!array || array.length === 0) return [];
+export function toUTC(timestamp) {
+  return dayjs(timestamp).unix();
+}
 
-  const startDate = dayjs(array[0].date);
-  const endDate = dayjs(array[array.length - 1].date);
+function seriesToMap(series) {
+  return series.reduce((a, b) => {
+    if (!a[b.time]) {
+      a[b.time] = b.value;
+    }
+    return a;
+  }, {});
+}
 
-  const map = {};
+function mapToSeries(map, timeFrame) {
+  const _format = timeFrame === "hourly" ? "YYYY-MM-DD-HH" : "YYYY-MM-DD";
 
-  array.forEach((item) => {
-    const date = item.date;
+  return Object.keys(map)
+    .map((key) => ({
+      time: dayjs(key, _format).unix(),
+      value: map[key],
+    }))
+    .sort((a, b) => a.time - b.time);
+}
+
+export function getDataset(series, timeFrame) {
+  const _format = timeFrame === "hourly" ? "YYYY-MM-DD-HH" : "YYYY-MM-DD";
+  const _unit = timeFrame === "hourly" ? "hour" : "day";
+
+  const startTime = dayjs(series[0].time, _format);
+  const endTime = dayjs(series[series.length - 1].time, _format);
+
+  const _map = seriesToMap(series);
+
+  let time = dayjs(startTime);
+
+  while (!time.isAfter(endTime)) {
+    let key = dayjs(time).format(_format);
+    if (!_map[key]) {
+      _map[key] = 0;
+    }
+    time = time.add(1, _unit);
+  }
+
+  const _series = mapToSeries(_map, timeFrame);
+
+  return _series;
+}
+
+export function getDatasetWithNet(series, timeFrame) {
+  const _format = timeFrame === "hourly" ? "YYYY-MM-DD-HH" : "YYYY-MM-DD";
+  const _unit = timeFrame === "hourly" ? "hour" : "day";
+
+  const startTime = dayjs(series[0].time, _format);
+  const endTime = dayjs(series[series.length - 1].time, _format);
+
+  const _map = {};
+
+  series.forEach((item) => {
+    const key = item.time;
     const _in = item?.in ?? 0;
     const _out = item?.out ?? 0;
 
-    if (!map[date]) {
-      map[date] = { date, in: _in, out: _out };
+    if (!_map[key]) {
+      _map[key] = { time: key, in: _in, out: _out };
     } else {
-      map[date].in += _in;
-      map[date].out += _out;
+      _map[key].in += _in;
+      _map[key].out += _out;
     }
   });
 
-  let currentDate = dayjs(startDate);
+  let time = dayjs(startTime);
   let net = 0;
 
-  while (!currentDate.isAfter(endDate)) {
-    const date = currentDate.format("YYYY-MM-DD");
-
-    if (!map[date]) {
-      map[date] = { date, in: 0, out: 0, net };
+  while (!time.isAfter(endTime)) {
+    const key = time.format(_format);
+    if (!_map[key]) {
+      _map[key] = { time: key, in: 0, out: 0, net };
     } else {
-      net += map[date].in - map[date].out;
-      map[date].net = net;
+      net += _map[key].in - _map[key].out;
+      _map[key].net = net;
     }
-
-    currentDate = currentDate.add(1, "day");
+    time = time.add(1, _unit);
   }
 
-  const r = Object.values(map).sort(
-    (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf()
-  );
+  const _series = Object.keys(_map)
+    .map((key) => ({
+      ..._map[key],
+      time: dayjs(key, _format).unix(),
+    }))
+    .sort((a, b) => a.time - b.time);
 
-  return r;
+  return _series;
 }

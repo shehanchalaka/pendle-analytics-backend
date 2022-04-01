@@ -1,6 +1,6 @@
 import { YieldContract, Transaction } from "../models";
 import { Price } from "../services";
-import { pushMissingDatesWithNet } from "../utils/helpers";
+import { getDatasetWithNet } from "../utils/helpers";
 
 export default {
   model() {
@@ -102,7 +102,7 @@ export default {
 
     const yieldContract = await YieldContract.findOne({ id }).select("-_id");
 
-    const results = await Transaction.aggregate([
+    const results_daily = await Transaction.aggregate([
       { $match: { yieldContract: id } },
       {
         $facet: {
@@ -133,13 +133,50 @@ export default {
       { $set: { arr: { $concatArrays: ["$in", "$out"] } } },
       { $unwind: "$arr" },
       { $replaceRoot: { newRoot: "$arr" } },
-      { $set: { date: "$_id" } },
-      { $sort: { date: 1 } },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
       { $project: { _id: 0 } },
     ]);
 
-    const history = pushMissingDatesWithNet(results);
+    const results_hourly = await Transaction.aggregate([
+      { $match: { yieldContract: id } },
+      {
+        $facet: {
+          in: [
+            { $match: { action: "mint" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d-%H" },
+                },
+                in: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+          out: [
+            { $match: { action: "redeem" } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { date: "$timestamp", format: "%Y-%m-%d-%H" },
+                },
+                out: { $sum: "$amountUSD" },
+              },
+            },
+          ],
+        },
+      },
+      { $set: { arr: { $concatArrays: ["$in", "$out"] } } },
+      { $unwind: "$arr" },
+      { $replaceRoot: { newRoot: "$arr" } },
+      { $set: { time: "$_id" } },
+      { $sort: { time: 1 } },
+      { $project: { _id: 0 } },
+    ]);
 
-    return { yieldContract, history };
+    const daily = getDatasetWithNet(results_daily, "daily");
+    const hourly = getDatasetWithNet(results_hourly, "hourly");
+
+    return { yieldContract, history: { daily, hourly } };
   },
 };
