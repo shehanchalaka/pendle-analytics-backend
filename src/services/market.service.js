@@ -75,7 +75,7 @@ export default {
     const market = await this.findByAddress(marketAddress);
 
     const trades = await Transaction.aggregate([
-      { $match: { market } },
+      { $match: { market: marketAddress } },
       { $match: { action: "swap" } },
       {
         $group: {
@@ -92,9 +92,9 @@ export default {
     const token0 = await Price.getTokenPrice(market.token0.address);
 
     const weight = market.type === "yt" ? market.ytWeight : 0.5;
-    const tvl = (market.reserve0 * token0.price) / weight;
+    const tvl = weight === 0 ? 0 : (market.reserve0 * token0.price) / weight;
 
-    return { ...trade, tvl, token0, market };
+    return { ...trade, tvl, market };
   },
 
   async getTradingHistory(query) {

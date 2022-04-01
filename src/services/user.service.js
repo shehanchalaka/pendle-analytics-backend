@@ -128,4 +128,18 @@ export default {
 
     return { balances: results?.[0] };
   },
+
+  async getUserTransactions(params) {
+    const address = params?.address?.toLowerCase();
+    const chainId = params?.chainId ?? 1;
+    const network = CHAIN_ID_TO_NETWORK[chainId];
+
+    const transactions = await Transaction.aggregate([
+      { $match: { network } },
+      { $match: { user: address } },
+      { $limit: 10 },
+    ]);
+
+    return { transactions };
+  },
 };

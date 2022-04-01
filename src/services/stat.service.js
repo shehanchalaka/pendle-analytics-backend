@@ -63,7 +63,7 @@ export default {
       if (item.status !== "fulfilled") return;
 
       const value = item.value;
-      ytTvl += value?.tvl ?? 0;
+      ytTvl += parseFloat(value?.tvl ?? 0);
       ytTradingVolumeUSD += value?.tradingVolumeUSD ?? 0;
       ytAverageTradeSizeUSD += value?.averageTradingVolumeUSD ?? 0;
     });
