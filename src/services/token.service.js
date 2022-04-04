@@ -22,7 +22,6 @@ export default {
     const result = await UserToken.aggregate([
       { $match: { network } },
       { $match: { token: address } },
-      { $match: { balance: { $gt: 0 } } },
       { $match: { user: { $ne: ZERO_ADDRESS } } },
       {
         $set: {
@@ -59,7 +58,6 @@ export default {
     const result = await UserToken.aggregate([
       { $match: { network } },
       { $match: { token: address } },
-      { $match: { balance: { $gt: 0 } } },
       { $match: { user: { $ne: ZERO_ADDRESS } } },
       {
         $set: {
