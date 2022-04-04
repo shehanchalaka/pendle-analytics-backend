@@ -12,6 +12,15 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+router.get("/report", async (req, res, next) => {
+  try {
+    const result = await User.getUsersReport(req.query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/:address", async (req, res, next) => {
   try {
     const result = await User.getUser({

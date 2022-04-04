@@ -1,9 +1,8 @@
-import { ethers, Contract } from "ethers";
+import { Contract } from "ethers";
 import { fetchAll, ANALYTICS_SUBGRAPH_URL } from "../index";
 import query from "../queries/markets";
 import { Sync as SyncService } from "../../services";
 import { Market } from "../../models";
-import BigNumber from "bignumber.js";
 import { PROVIDERS } from "../../sync";
 import PendleMarketAbi from "../../abis/PendleMarket.json";
 
@@ -38,12 +37,13 @@ export async function syncMarkets(network, syncFromBeginning = false) {
   await Market.bulkWrite(bwQuery);
   await SyncService.updateLastIdOf(entity, network, result.lastId);
   await syncHardcodedMarkets();
+  await blacklistMarkets();
   await syncStartTimes();
 
   console.log(`Synced ${entity}`);
 }
 
-const hardCodedMarkets = [
+const HARDCODED_MARKETS = [
   {
     network: "mainnet",
     address: "0x37922c69b08babcceae735a31235c81f1d1e8e43",
@@ -77,7 +77,7 @@ const hardCodedMarkets = [
 ];
 
 async function syncHardcodedMarkets() {
-  const bwQuery = hardCodedMarkets.map((doc) => ({
+  const bwQuery = HARDCODED_MARKETS.map((doc) => ({
     updateOne: {
       filter: { address: doc.address },
       update: doc,
@@ -85,6 +85,25 @@ async function syncHardcodedMarkets() {
     },
   }));
   await Market.bulkWrite(bwQuery);
+}
+
+const BLACKLISTED_MARKETS = [
+  "0x3424ce4aa5159fa19a11e22d442e0451e8148558", // YT-wMEMO-23DEC2021 / USDC.e
+  "0xfedaffb209d463fc247a4ebb0f694e4537e2a5a0", // OT-wMEMO-23DEC2021 / USDC.e
+  "0x73a62de3b35126ae8f6a4547b9cbc170bc852001", // YT-cDAI-29DEC2022 / USDC
+  "0x1e790169999eb3bf4bcd41c650ab417faa53138d", // OT-cDAI-29DEC2022 / USDC
+  "0xbc1e38aa28d2f01f69ff5af64172c3ef67cf7274", // OT-SLP-29DEC2022 / PENDLE
+];
+
+async function blacklistMarkets() {
+  const bwQuery = BLACKLISTED_MARKETS.map((address) => ({
+    updateOne: {
+      filter: { address: address },
+      update: { blacklisted: true },
+    },
+  }));
+  await Market.bulkWrite(bwQuery);
+  console.log("Updated blacklisted markets");
 }
 
 export async function syncStartTimes() {

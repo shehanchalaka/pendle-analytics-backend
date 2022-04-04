@@ -18,6 +18,7 @@ const schema = new Schema({
   reserve1: { type: Number },
   totalSupply: { type: Number },
   ytWeight: { type: Number },
+  blacklisted: { type: Boolean, default: false },
 });
 
 export default model("Market", schema);

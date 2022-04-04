@@ -1,4 +1,3 @@
-import { Transaction } from "../models";
 import { Market, YieldContract } from "../services";
 import { CHAIN_ID_TO_NETWORK } from "../utils/constants";
 import { toUTC } from "../utils/helpers";
@@ -8,8 +7,16 @@ export default {
     const network = CHAIN_ID_TO_NETWORK[chainId] ?? "mainnet";
 
     const yieldContracts = await YieldContract.model().find({ network });
-    const otMarkets = await Market.model().find({ network, type: "ot" });
-    const ytMarkets = await Market.model().find({ network, type: "yt" });
+    const otMarkets = await Market.model().find({
+      network,
+      type: "ot",
+      blacklisted: false,
+    });
+    const ytMarkets = await Market.model().find({
+      network,
+      type: "yt",
+      blacklisted: false,
+    });
 
     const forges = await Promise.allSettled(
       yieldContracts.map((t) =>
@@ -110,7 +117,11 @@ export default {
     const network = CHAIN_ID_TO_NETWORK[chainId] ?? "mainnet";
     const type = query?.type ?? undefined;
 
-    const otMarkets = await Market.model().find({ network, type });
+    const otMarkets = await Market.model().find({
+      network,
+      type,
+      blacklisted: false,
+    });
 
     const ot_markets = await Promise.allSettled(
       otMarkets.map((t) => Market.getTradingHistory({ market: t.address }))

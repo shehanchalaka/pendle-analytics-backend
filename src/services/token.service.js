@@ -48,4 +48,29 @@ export default {
 
     return result?.[0];
   },
+
+  async getTokenHoldersReport(params) {
+    const address = params?.address?.toLowerCase();
+    const chainId = params?.chainId ?? 1;
+    const network = CHAIN_ID_TO_NETWORK[chainId];
+
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+    const result = await UserToken.aggregate([
+      { $match: { network } },
+      { $match: { token: address } },
+      { $match: { balance: { $gt: 0 } } },
+      { $match: { user: { $ne: ZERO_ADDRESS } } },
+      {
+        $set: {
+          address: "$user",
+          totalTransacted: { $add: ["$totalReceived", "$totalSent"] },
+          name: "",
+        },
+      },
+      { $sort: { balance: -1 } },
+    ]);
+
+    return result;
+  },
 };
