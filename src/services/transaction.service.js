@@ -1,4 +1,5 @@
 import { Transaction } from "../models";
+import dayjs from "dayjs";
 
 export default {
   async getTransactions(params) {
@@ -9,7 +10,10 @@ export default {
     const filter = params?.filter?.toLowerCase() ?? "all";
     const skip = parseInt(params?.skip ?? 0);
     const limit = parseInt(params?.limit ?? 20);
+    const endDate = parseInt(params?.endDate ?? 0);
     const id = `${forgeId}-${expiry}-${underlyingToken}`;
+
+    const endTime = dayjs(endDate).endOf("day").toDate();
 
     const filterStage = [];
     if (filter === "mints") {
@@ -21,6 +25,12 @@ export default {
     } else if (filter === "liquidity") {
       filterStage.push({
         $match: { $or: [{ action: "join" }, { action: "exit" }] },
+      });
+    }
+
+    if (endDate > 0) {
+      filterStage.push({
+        $match: { timestamp: { $lte: endTime } },
       });
     }
 
