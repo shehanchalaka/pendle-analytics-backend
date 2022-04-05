@@ -135,6 +135,6 @@ export default {
       }
     });
 
-    return charts;
+    return charts.sort((a, b) => a.market.block - b.market.block);
   },
 };

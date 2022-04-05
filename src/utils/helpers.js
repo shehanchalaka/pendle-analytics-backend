@@ -39,7 +39,8 @@ export function getDataset(series, timeFrame) {
   const _unit = timeFrame === "hourly" ? "hour" : "day";
 
   const startTime = dayjs(series[0].time, _format);
-  const endTime = dayjs(series[series.length - 1].time, _format);
+  // const endTime = dayjs(series[series.length - 1].time, _format);
+  const endTime = dayjs(new Date());
 
   const _map = seriesToMap(series);
 
@@ -63,7 +64,8 @@ export function getDatasetWithNet(series, timeFrame) {
   const _unit = timeFrame === "hourly" ? "hour" : "day";
 
   const startTime = dayjs(series[0].time, _format);
-  const endTime = dayjs(series[series.length - 1].time, _format);
+  // const endTime = dayjs(series[series.length - 1].time, _format);
+  const endTime = dayjs(new Date());
 
   const _map = {};
 
