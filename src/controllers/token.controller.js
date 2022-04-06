@@ -21,4 +21,13 @@ router.get("/holders/report", async (req, res, next) => {
   }
 });
 
+router.get("/holders/charts", async (req, res, next) => {
+  try {
+    const result = await Token.getTokenHoldersCharts(req.query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
