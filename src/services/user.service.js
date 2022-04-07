@@ -1,5 +1,6 @@
 import { Transaction, User, UserToken } from "../models";
 import { CHAIN_ID_TO_NETWORK } from "../utils/constants";
+import { getUserDetails } from "../adapters/Moralis";
 
 export default {
   async getUsers(params) {
@@ -204,5 +205,15 @@ export default {
     ]);
 
     return result;
+  },
+
+  async getUserAddtionalDetails(params) {
+    const address = params?.address?.toLowerCase();
+    const chainId = params?.chainId ?? 1;
+    const network = CHAIN_ID_TO_NETWORK[chainId];
+
+    const tokens = await getUserDetails({ network, address });
+
+    return { tokens };
   },
 };

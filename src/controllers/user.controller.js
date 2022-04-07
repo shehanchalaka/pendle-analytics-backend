@@ -45,4 +45,16 @@ router.get("/:address/transactions", async (req, res, next) => {
   }
 });
 
+router.get("/:address/details", async (req, res, next) => {
+  try {
+    const result = await User.getUserAddtionalDetails({
+      ...req.query,
+      address: req.params.address,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

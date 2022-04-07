@@ -25,4 +25,6 @@ export const {
   TOKENS_AVALANCHE_SUBGRAPH_URL,
 
   COVALENT_API_KEY,
+
+  MORALIS_API_KEY,
 } = process.env;
